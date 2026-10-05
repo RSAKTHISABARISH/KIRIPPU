@@ -1,4 +1,4 @@
-import { PDFParse } from 'pdf-parse';
+import pdfParse from 'pdf-parse';
 import { MAX_UPLOAD_BYTES, SUPPORTED_EXTENSIONS, SUPPORTED_MIME_TYPES } from '../../shared/constants';
 
 export function safeFilename(name: string): string {
@@ -15,13 +15,33 @@ export function validateUpload(file: { originalname: string; mimetype: string; s
 
 export async function extractText(buffer: Buffer, mimetype: string): Promise<{ text: string; pageCount: number; pages: Array<{ page: number; text: string }> }> {
   if (mimetype === 'application/pdf') {
-    const parser = new PDFParse({ data: buffer });
-    const parsed = await parser.getText();
-    await parser.destroy();
-    const text = parsed.text.trim();
-    if (!text) throw new Error("I couldn't extract readable text from this document. Try uploading a clearer document.");
-    const pages = parsed.pages.map((page) => ({ page: page.num, text: page.text.trim() })).filter((page) => page.text);
-    return { text, pageCount: Math.max(parsed.total || 1, pages.length), pages: pages.length ? pages : [{ page: 1, text }] };
+    const pages: Array<{ page: number; text: string }> = [];
+
+    // pdf-parse v1.x — pure JavaScript, no native binaries required
+    const data = await pdfParse(buffer, {
+      // Capture per-page text via the pagerender hook
+      pagerender: async (pageData: any): Promise<string> => {
+        const textContent = await pageData.getTextContent();
+        const pageText: string = textContent.items
+          .map((item: any) => (typeof item.str === 'string' ? item.str : ''))
+          .join(' ')
+          .trim();
+        pages.push({ page: pageData.pageNumber as number, text: pageText });
+        return pageText;
+      },
+    } as any);
+
+    const text = data.text?.trim() ?? '';
+    if (!text && pages.every((p) => !p.text)) {
+      throw new Error("I couldn't extract readable text from this document. Try uploading a clearer document.");
+    }
+
+    const filteredPages = pages.filter((p) => p.text);
+    return {
+      text: text || filteredPages.map((p) => p.text).join('\n'),
+      pageCount: data.numpages || Math.max(1, filteredPages.length),
+      pages: filteredPages.length ? filteredPages : [{ page: 1, text: text }],
+    };
   }
   throw new Error('Image OCR is not configured in this environment yet. Try a text-based PDF or a clearer document.');
 }

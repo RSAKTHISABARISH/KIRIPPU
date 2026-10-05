@@ -9,12 +9,28 @@ import { MAX_UPLOAD_BYTES } from '../../shared/constants';
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAX_UPLOAD_BYTES } });
 
+// Wraps multer to catch parse errors and return proper JSON
+function runMulter(req: import('express').Request, res: import('express').Response): Promise<void> {
+  return new Promise((resolve, reject) => {
+    upload.single('file')(req, res, (err) => {
+      if (err) reject(err);
+      else resolve();
+    });
+  });
+}
+
 router.get('/', (_req, res) => {
   const documents = db.listDocuments().map((document) => { refreshDerivedStatuses(document); return { ...document, rawText: undefined, pages: undefined, completion: completionPercentage(document), actions: document.actions.map((action) => ({ id: action.id, title: action.title, status: action.status, deadline: action.deadline, priority: action.priority })) }; });
   res.json({ documents });
 });
 
-router.post('/upload', upload.single('file'), async (req, res) => {
+router.post('/upload', async (req, res) => {
+  try {
+    await runMulter(req, res);
+  } catch (multerError) {
+    const msg = multerError instanceof Error ? multerError.message : 'File upload failed.';
+    return res.status(400).json({ error: msg });
+  }
   const file = req.file;
   if (!file) return res.status(400).json({ error: 'Choose a document before uploading.' });
   const validationError = validateUpload(file);

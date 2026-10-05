@@ -1,12 +1,8 @@
-import type { IncomingMessage, ServerResponse } from 'node:http';
 import app from '../src/server/app';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
-
-export default function handler(req: IncomingMessage, res: ServerResponse) {
-  return app(req, res);
+export default function handler(req: VercelRequest, res: VercelResponse) {
+  // Restore the original URL so Express sub-router paths work correctly
+  if (!req.url) req.url = '/';
+  return app(req as any, res as any);
 }

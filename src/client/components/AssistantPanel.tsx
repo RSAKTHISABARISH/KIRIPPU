@@ -1,0 +1,14 @@
+import { useState } from 'react';
+import type { ChatResponse, DocumentRecord } from '../../shared/types';
+import { api } from '../lib/api';
+
+interface Message { role: 'user' | 'assistant'; content: string; sourcePage?: number; grounded?: boolean; }
+
+export function AssistantPanel({ document }: { document: DocumentRecord }) {
+  const [question, setQuestion] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [messages, setMessages] = useState<Message[]>([{ role: 'assistant', content: 'Ask me what this document requires you to do. I’ll stay grounded in the source.', grounded: true }]);
+  const ask = async (value = question) => { if (!value.trim() || loading) return; setQuestion(''); setMessages((current) => [...current, { role: 'user', content: value }]); setLoading(true); try { const response: ChatResponse = await api.chat(document.id, value); setMessages((current) => [...current, { role: 'assistant', content: response.answer, sourcePage: response.sourcePage, grounded: response.grounded }]); } catch (error) { setMessages((current) => [...current, { role: 'assistant', content: error instanceof Error ? error.message : 'I could not answer that right now.' }]); } finally { setLoading(false); } };
+  const prompts = ['What do I need to submit?', 'When is the deadline?', 'Indha document-la next naan enna pannanum?', 'Deadline miss aana enna aagum?'];
+  return <section className="assistant-panel panel"><div className="assistant-heading"><div className="assistant-orb">K</div><div><span className="eyebrow">KURIPPU assistant</span><h2>Ask the document.</h2><p>Answers are tied to source text, not general knowledge.</p></div><span className="grounded-label">● Source-grounded</span></div><div className="assistant-messages">{messages.map((message, index) => <div key={`${message.role}-${index}`} className={`assistant-message assistant-message--${message.role}`}><div className="message-avatar">{message.role === 'assistant' ? 'K' : 'AR'}</div><div><p>{message.content}</p>{message.sourcePage && <span className="message-source">Source · page {message.sourcePage} ↗</span>}</div></div>)}{loading && <div className="assistant-message assistant-message--assistant"><div className="message-avatar">K</div><div className="typing"><i /><i /><i /></div></div>}</div><div className="prompt-row">{prompts.map((prompt) => <button key={prompt} onClick={() => ask(prompt)}>{prompt}</button>)}</div><form className="assistant-input" onSubmit={(event) => { event.preventDefault(); void ask(); }}><input value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="Ask in English, Tamil, or Tanglish…" /><button type="submit" aria-label="Send">↑</button></form><span className="assistant-note">KURIPPU will say when an answer is not present in this document.</span></section>;
+}

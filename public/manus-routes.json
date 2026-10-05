@@ -1,0 +1,8 @@
+{
+  "routes": [
+    { "path": "/", "title": "KURIPPU — Turn documents into actions" },
+    { "path": "/app", "title": "KURIPPU workspace" },
+    { "path": "/documents", "title": "My documents — KURIPPU" },
+    { "path": "/documents/:id", "title": "Document action plan — KURIPPU" }
+  ]
+}

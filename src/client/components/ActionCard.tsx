@@ -1,0 +1,15 @@
+import { useState } from 'react';
+import type { ActionItem } from '../../shared/types';
+import { formatDate, relativeDeadline } from '../lib/formatters';
+import { PriorityBadge, StatusBadge } from './StatusBadge';
+
+export function ActionCard({ action, dependencies, onUpdate, onSelect }: { action: ActionItem; dependencies: ActionItem[]; onUpdate: (status: ActionItem['status']) => void; onSelect?: () => void }) {
+  const [expanded, setExpanded] = useState(false);
+  const nextStatus = action.status === 'completed' ? 'pending' : 'completed';
+  return <article className={`action-card action-card--${action.priority} ${action.status === 'completed' ? 'is-complete' : ''}`}>
+    <div className="action-card__top"><button className={`action-check ${action.status === 'completed' ? 'is-checked' : ''}`} onClick={() => onUpdate(nextStatus)} aria-label={action.status === 'completed' ? `Reopen ${action.title}` : `Complete ${action.title}`}>{action.status === 'completed' ? '✓' : ''}</button><div className="action-card__title-wrap"><div className="action-kicker"><PriorityBadge priority={action.priority} /><StatusBadge status={action.status} /></div><button className="action-title" onClick={() => { setExpanded(!expanded); onSelect?.(); }}>{action.title}</button><p>{action.description}</p></div><button className="quiet-button" onClick={() => setExpanded(!expanded)} aria-label="Toggle action details">{expanded ? '−' : '＋'}</button></div>
+    <div className="action-card__meta"><span className="meta-item"><span className="meta-icon">◷</span>{relativeDeadline(action)}</span>{action.dependsOn.length > 0 && <span className="meta-item"><span className="meta-icon">↳</span>{dependencies.length} prerequisite{dependencies.length === 1 ? '' : 's'}</span>}<span className="meta-item source-link">Page {action.sourcePage} · {Math.round(action.confidence * 100)}% confidence</span></div>
+    {expanded && <div className="action-card__details"><div><span className="detail-label">What this means</span><p>{action.description}</p></div><div><span className="detail-label">Consequence</span><p>{action.consequence}</p></div>{action.requiredDocuments.length > 0 && <div><span className="detail-label">Bring with you</span><div className="chip-row">{action.requiredDocuments.map((item) => <span className="evidence-chip" key={item}>▧ {item}</span>)}</div></div>}<div className="source-quote"><span className="detail-label">Source · page {action.sourcePage}</span><blockquote>“{action.sourceText}”</blockquote></div>{action.notes && <div><span className="detail-label">Your note</span><p>{action.notes}</p></div>}<button className="text-button" onClick={() => onUpdate(action.status === 'in_progress' ? 'pending' : 'in_progress')}>{action.status === 'in_progress' ? 'Move back to ready' : 'Mark in progress'} ↗</button></div>}
+    <div className="action-card__footer"><span>{action.deadline ? `Due ${formatDate(action.deadline)}` : 'No explicit date found'}</span><button className="text-button" onClick={onSelect}>View source ↗</button></div>
+  </article>;
+}
